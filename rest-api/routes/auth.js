@@ -18,7 +18,7 @@ router.put('/signup', [
           }
         });
     })
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_dots: false }),
     body('password')
       .trim()
       .isLength({ min: 5 }),
@@ -27,5 +27,7 @@ router.put('/signup', [
       .not()
       .isEmpty()
 ], authController.signup);
+
+router.post('/login', authController.login);
 
 module.exports = router;
