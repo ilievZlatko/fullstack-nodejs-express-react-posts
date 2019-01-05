@@ -1,10 +1,14 @@
-const { validationResult } = require('express-validator/check');
+const {
+	validationResult
+} = require('express-validator/check');
 const fs = require('fs');
 const path = require('path');
 
+const io = require('../socket');
 const Post = require('../models/post');
 const User = require('../models/user');
 
+// Get all the posts
 exports.getPosts = (req, res, next) => {
 	const currentPage = req.query.page || 1;
 	const perPage = 5;
@@ -15,6 +19,7 @@ exports.getPosts = (req, res, next) => {
 		.then(count => {
 			totalItems = count;
 			return Post.find()
+				.populate('creator')
 				.skip((currentPage - 1) * perPage)
 				.limit(perPage);
 		})
@@ -33,6 +38,7 @@ exports.getPosts = (req, res, next) => {
 		});
 };
 
+// Create new Post
 exports.createPost = (req, res, next) => {
 	const errors = validationResult(req);
 
@@ -71,10 +77,25 @@ exports.createPost = (req, res, next) => {
 		})
 		.then(result => {
 			// Create post in db
+			io.getIO().emit(
+				'posts', {
+					action: 'create',
+					post: {
+						...post._doc,
+						creator: {
+							_id: req.userId,
+							name: user.name
+						}
+					}
+				}
+			);
 			res.status(201).json({
 				message: 'Post created successfully!',
 				post: post,
-				creator: { _id: creator._id, name: creator.name }
+				creator: {
+					_id: creator._id,
+					name: creator.name
+				}
 			});
 		})
 		.catch(err => {
@@ -85,6 +106,7 @@ exports.createPost = (req, res, next) => {
 		});
 };
 
+// Get single post by it's id
 exports.getPost = (req, res, next) => {
 	const postId = req.params.postId;
 	Post.findById(postId)
@@ -95,7 +117,10 @@ exports.getPost = (req, res, next) => {
 				throw error;
 			}
 
-			res.status(200).json({ message: 'Post fetched', post });
+			res.status(200).json({
+				message: 'Post fetched',
+				post
+			});
 		})
 		.catch(err => {
 			if (!err.statusCode) {
@@ -105,6 +130,7 @@ exports.getPost = (req, res, next) => {
 		});
 };
 
+// Update post
 exports.updatePost = (req, res, next) => {
 	const postId = req.params.postId;
 	const errors = validationResult(req);
@@ -153,7 +179,10 @@ exports.updatePost = (req, res, next) => {
 			return post.save();
 		})
 		.then(result => {
-			res.status(200).json({ message: 'Post updated!', post: result });
+			res.status(200).json({
+				message: 'Post updated!',
+				post: result
+			});
 		})
 		.catch(err => {
 			if (!err.statusCode) {
@@ -163,6 +192,7 @@ exports.updatePost = (req, res, next) => {
 		});
 };
 
+// Delete post
 exports.deletePost = (req, res, next) => {
 	const postId = req.params.postId;
 
@@ -192,7 +222,9 @@ exports.deletePost = (req, res, next) => {
 			return user.save();
 		})
 		.then(result => {
-			res.status(200).json({ message: 'Deleted post with id: ' + postId });
+			res.status(200).json({
+				message: 'Deleted post with id: ' + postId
+			});
 		})
 		.catch(err => {
 			if (!err.statusCode) {
@@ -202,6 +234,7 @@ exports.deletePost = (req, res, next) => {
 		});
 };
 
+// Helper methods
 const clearImage = filePath => {
 	filePath = path.join(__dirname, '..', filePath);
 	fs.unlink(filePath, err => console.log(err));
