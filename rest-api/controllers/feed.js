@@ -20,6 +20,7 @@ exports.getPosts = (req, res, next) => {
 			totalItems = count;
 			return Post.find()
 				.populate('creator')
+				.sort({ createdAt: -1 })
 				.skip((currentPage - 1) * perPage)
 				.limit(perPage);
 		})
@@ -224,6 +225,7 @@ exports.deletePost = (req, res, next) => {
 			return user.save();
 		})
 		.then(result => {
+			io.getIO().emit('posts', { action: 'delete', post: postId });
 			res.status(200).json({
 				message: 'Deleted post with id: ' + postId
 			});
